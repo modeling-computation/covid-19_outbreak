@@ -1,123 +1,99 @@
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score, classification_report
-from sklearn.model_selection import cross_val_score
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.linear_model import LinearRegression
+
+### make df
+def DF_dict(data, itv, par, iter):
+    scaler = MinMaxScaler()
+    part_arr = np.array([1]*par + [2]*(iter))
+    temp_df = {}
+    for i in range(len(data)-itv +1):
+        temp = data.iloc[i:i+itv].copy()
+        temp.reset_index(drop=True, inplace=True)
+        temp['part'] = part_arr
+        temp['N_total'] = scaler.fit_transform(temp[['total']])
+        key = i
+        temp_df[key] = temp
+    return temp_df
+
+def LR_dict(df_dict):
+    temp_lr = {}
+    for key in df_dict.keys():
+        temp = df_dict[key]
+        temp_lr[key] = {}
+        for p in [1,2]:
+            lr = LinearRegression()
+            X_data = temp[temp.part == p].idx
+            y_data = temp[temp.part == p].N_total
+            
+            lr.fit(X_data.values.reshape(-1,1), y_data)
+            lr_pred = lr.predict(X_data.values.reshape(-1,1))
+        
+            temp_lr[key]['LR' + str(p)] = lr
+            temp_lr[key]['LR' + str(p)+ 'val'] = lr_pred
+    return temp_lr
+
+### make df
+def make_df(data, itv, par, iter): 
+    dic1 = DF_dict(data, itv, par, iter)
+    dic2 = LR_dict(dic1)
+    cols = ['data_num','part1_patient_mean','part2_patient_mean',] + ['part1_std','part2_std'] + ['week','part1_mean','part1_slope','part2_mean','part2_slope']
+
+    features = pd.DataFrame()
+    for key in dic1.keys():
+        data_tmp = dic1[key]
+        add = [key, 
+               data_tmp[data_tmp.part==1].total.mean(), 
+               data_tmp[data_tmp.part==2].total.mean()]
+        add.append(data_tmp[data_tmp.part==1].N_total.std())
+        add.append(data_tmp[data_tmp.part==2].N_total.std())
+        add.append(data_tmp.date.iloc[0].weekday())
+        for j in [1,2]:
+            temp = dic2[key]['LR'+str(j)]
+            add += [dic2[key]['LR'+str(j)+'val'].mean(),temp.coef_[0]]
+        features = pd.concat([features, pd.DataFrame(add).T])
+
+    features.reset_index(drop=True, inplace=True)
+    features.columns = cols
+    features['mean_diff'] = abs(features.part2_mean - features.part1_mean)
+    features['slope_diff'] = abs(features.part2_slope - features.part1_slope)
+    features['slope_ratio'] = features.part2_slope / features.part1_slope    
+
+    ### add N_total 
+    temp = []
+    for num in list(features.data_num):
+        row = np.concatenate([
+                dic1[int(num)][:par][['policy','Delta','Omicron']].mean().values,
+                dic1[int(num)][par:][['policy','Delta','Omicron']].mean().values
+                ])
+        temp.append(row)
+    temp = pd.DataFrame(temp)
+    temp.columns = ['policy1','Delta1','Omicron1'] + ['policy2','Delta2','Omicron2']
+    features = pd.concat([features,temp],axis=1)
+    return features
+
+def make_label(dataframe, index_name, cls, label_name):
+    (a,b,c) = (1,0.01,0.01)
+    dataframe[str(index_name)] = a * np.sinh(b*(dataframe.part2_patient_mean - dataframe.part1_patient_mean) / (dataframe.part1_patient_mean)) * np.exp(c * (dataframe.part2_slope - dataframe.part1_slope))
+    dataframe = dataframe.sort_values(by=index_name)
+    q = len(dataframe) // cls
+    r = len(dataframe) % cls
+    dataframe[str(label_name)] = np.concatenate([np.zeros(q) + c for c in range(cls)] + [np.zeros(r)+ cls-1])
+    return dataframe
+
+# input
+n,m,t = (35,21,14)
 
 ### load data
-train = pd.read_csv('data/train.csv', index_col=0)
-test = pd.read_csv('data/test.csv', index_col=0)
+case = pd.read_excel("data/data.xlsx")
+case['idx'] = case.index
 
-### make result data
-ml_train_results = train[['data_num','label']].copy()
-ml_test_results = test[['data_num','label']].copy()
+# make data
+dict1 = DF_dict(case,n,m,t)
+df = make_df(case,n,m,t)
+df = make_label(df,'RI',3,'label')
+df.reset_index(drop=True, inplace=True)
 
-### GridSearch parameter
-grid_para = {'svm':{'C': 130.0, 'gamma': 0.2, 'kernel': 'rbf'},
-             'rf' :{'max_depth': 14, 'n_estimators': 55, 'random_state': 42}, 
-             'xgb':{'max_depth': 9, 'n_estimators': 55, 'random_state': 42}}
-
-### ML data setting
-feature_col = ['week','part1_patient_mean','part1_slope','policy1','Delta1','Omicron1','policy2','part1_std']
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(train[feature_col])
-X_test_scaled = scaler.transform(test[feature_col])
-y_train = train['label']
-y_test = test['label']
-
-print('=====================================================')
-print('=                   Result of SVM                   =')
-print('=====================================================')
-grid_svm = grid_para['svm']
-svm_model = SVC(C=grid_svm['C'], 
-            gamma=grid_svm['gamma'], 
-            kernel=grid_svm['kernel'],
-            probability=True)
-svm_model.fit(X_scaled, y_train)
-svm_pred_train = svm_model.predict(X_scaled)
-svm_pred_test = svm_model.predict(X_test_scaled)
-print('train accuracy : ', accuracy_score(y_train, svm_pred_train))
-print('test accuracy : ', accuracy_score(y_test, svm_pred_test))
-
-svm_scores = cross_val_score(svm_model,                 # ML 모델
-                         X_scaled,            # train data
-                         y_train,             # test data
-                         scoring='accuracy',  # 예측성능평가 지표
-                         cv=10)                # kfold k=cv
-print('10-fold cross validation mean :', np.mean(svm_scores))
-print(classification_report(y_test, svm_pred_test))
-print('\n')
-
-### make svm results
-proba = svm_model.predict_proba(X_test_scaled)
-np.savetxt('result/svm_proba.csv',proba,delimiter=",")
-ml_train_results['svm'] = svm_pred_train
-ml_test_results['svm'] = svm_pred_test
-
-print('=====================================================')
-print('=                   Result of RF                    =')
-print('=====================================================')
-grid_rf = grid_para['rf']
-rf_model = RandomForestClassifier(n_estimators=grid_rf['n_estimators'], 
-                                  max_depth=grid_rf['max_depth'],
-                                  random_state=grid_rf['random_state'],
-                                  )
-rf_model.fit(X_scaled, y_train)
-rf_pred_train = rf_model.predict(X_scaled)
-rf_pred_test = rf_model.predict(X_test_scaled)
-print('train accuracy : ', accuracy_score(y_train, rf_pred_train))
-print('test accuracy : ', accuracy_score(y_test, rf_pred_test))
-
-rf_scores = cross_val_score(rf_model,                 # ML 모델
-                         X_scaled,            # train data
-                         y_train,             # test data
-                         scoring='accuracy',  # 예측성능평가 지표
-                         cv=10)                # kfold k=cv
-print('10-fold cross validation mean :', np.mean(rf_scores))
-print(classification_report(y_test, rf_pred_test))
-print('\n')
-
-### make rf results
-proba = rf_model.predict_proba(X_test_scaled)
-np.savetxt('result/rf_proba.csv',proba,delimiter=",")
-ml_train_results['rf']=rf_pred_train
-ml_test_results['rf']=rf_pred_test
-
-print('=====================================================')
-print('=                   Result of XGB                   =')
-print('=====================================================')
-grid_xgb = grid_para['xgb']
-xgb_model = XGBClassifier(n_estimators=grid_xgb['n_estimators'], 
-            max_depth=grid_xgb['max_depth'],
-            random_state=grid_xgb['random_state'])
-xgb_model.fit(X_scaled, y_train)
-xgb_pred_train = xgb_model.predict(X_scaled)
-xgb_pred_test = xgb_model.predict(X_test_scaled)
-print('train accuracy : ', accuracy_score(y_train, xgb_pred_train))
-print('test accuracy : ', accuracy_score(y_test, xgb_pred_test))
-
-xgb_scores = cross_val_score(xgb_model,                 # ML 모델
-                         X_scaled,            # train data
-                         y_train,             # test data
-                         scoring='accuracy',  # 예측성능평가 지표
-                         cv=10)                # kfold k=cv
-print('10-fold cross validation mean :', np.mean(xgb_scores))
-print(classification_report(y_test, xgb_pred_test))
-print('\n')
-
-### make rf results
-proba = xgb_model.predict_proba(X_test_scaled)
-np.savetxt('result/xgb_proba.csv',proba,delimiter=",")
-ml_train_results['xgb']=xgb_pred_train
-ml_test_results['xgb']=xgb_pred_test
-
-### save result
-ml_train_results.to_csv('result/ml_train_results.csv')
-ml_test_results.to_csv('result/ml_test_results.csv')
-feature_importance_dict = {'feature':feature_col,'RF':rf_model.feature_importances_, 'XGB':xgb_model.feature_importances_}
-featrue_importance_df = pd.DataFrame(feature_importance_dict)
-featrue_importance_df.to_csv('result/feature_importance.csv')
-
+### save
+df.to_csv('result/pre_data.csv')
