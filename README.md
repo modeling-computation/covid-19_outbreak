@@ -6,7 +6,7 @@ This is the code used in
 
 Giphil Cho, Jeong Rye Park, Yongin Choi, Hyeonjeong Ahn, Hyojung Lee
 
-[link]() : Publication is not yet available
+[link]() : Publication is not yet available.
 
 
 
