@@ -117,7 +117,7 @@ ml_test_results['xgb']=xgb_pred_test
 ### save result
 ml_train_results.to_csv('result/ml_train_results.csv')
 ml_test_results.to_csv('result/ml_test_results.csv')
-# feature_importance_dict = {'feature':feature_col,'RF':rf_model.feature_importances_, 'XGB':xgb_model.feature_importances_}
-# featrue_importance_df = pd.DataFrame(feature_importance_dict)
-# featrue_importance_df.to_csv('result/feature_importance.csv')
+feature_importance_dict = {'feature':feature_col,'RF':rf_model.feature_importances_, 'XGB':xgb_model.feature_importances_}
+featrue_importance_df = pd.DataFrame(feature_importance_dict)
+featrue_importance_df.to_csv('result/feature_importance.csv')
 
