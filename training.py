@@ -12,21 +12,21 @@ train = pd.read_csv('data/train.csv', index_col=0)
 test = pd.read_csv('data/test.csv', index_col=0)
 
 ### make result data
-ml_train_results = train[['data_num','label']].copy()
-ml_test_results = test[['data_num','label']].copy()
+ml_train_results = train[['data_num','Label']].copy()
+ml_test_results = test[['data_num','Label']].copy()
 
 ### GridSearch parameter
-grid_para = {'svm':{'C': 130.0, 'gamma': 0.2, 'kernel': 'rbf'},
-             'rf' :{'max_depth': 14, 'n_estimators': 55, 'random_state': 42}, 
-             'xgb':{'max_depth': 9, 'n_estimators': 55, 'random_state': 42}}
+grid_para = {'svm':{'C': 50.0, 'gamma': 0.3, 'kernel': 'rbf'},
+             'rf' :{'max_depth': 14, 'n_estimators': 85, 'random_state': 42}, 
+             'xgb':{'max_depth': 7, 'n_estimators': 110, 'random_state': 42}}
 
 ### ML data setting
-feature_col = ['week','part1_patient_mean','part1_slope','policy1','Delta1','Omicron1','policy2','part1_std']
+feature_col = ['Week',r'$\mu^c$',r'$\beta^c$',r'$Policy^c$',r'$Delta^c$',r'$Omicron^c$',r'$Policy^p$',r'$\sigma^c$']
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(train[feature_col])
 X_test_scaled = scaler.transform(test[feature_col])
-y_train = train['label']
-y_test = test['label']
+y_train = train['Label']
+y_test = test['Label']
 
 print('=====================================================')
 print('=                   Result of SVM                   =')
