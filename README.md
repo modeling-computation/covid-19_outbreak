@@ -1,4 +1,4 @@
-# Outbreak detection of COVID-19 epidemic: Machine Learning approach
+# Detection of COVID-19 epidemic outbreak using machine learning
 
 This is the code used in 
 
