@@ -2,7 +2,7 @@
 
 This is the code used in 
 
-'Outbreak detection of COVID-19 epidemic: Machine Learning approach'  
+'Detection of COVID-19 epidemic outbreak using machine learning'  
 
 Giphil Cho, Jeong Rye Park, Yongin Choi, Hyeonjeong Ahn, and Hyojung Lee
 
