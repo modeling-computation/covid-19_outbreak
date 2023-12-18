@@ -2,12 +2,9 @@
 
 This is the code used in 
 
-'Detection of COVID-19 epidemic outbreak using machine learning'  
+'[Detection of COVID-19 epidemic outbreak using machine learning](https://www.frontiersin.org/articles/10.3389/fpubh.2023.1252357/full?&utm_source=Email_to_authors_&utm_medium=Email&utm_content=T1_11.5e1_author&utm_campaign=Email_publication&field=&journalName=Frontiers_in_Public_Health&id=1252357)' published by Frontiers in Public Health.
 
 Giphil Cho, Jeong Rye Park, Yongin Choi, Hyeonjeong Ahn, and Hyojung Lee
-
-[link]()
-
 
 
 ### Abstract
